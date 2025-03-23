@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: domain-monitor-db
+          image: postgres:15 # write the real version we used
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh", "-c", "apt -y update && apt -y install curl && curl https://raw.githubusercontent.com/danette14/moniDBase/refs/heads/main/init_db.sql | psql -U myuser -d moniDB"]
+          env:
+            - name: POSTGRES_USER
+              value: "myuser"
+            - name: POSTGRES_PASSWORD # add secretKeyRef
+              value: "mypassword"
+            - name: POSTGRES_DB
+              value: "moniDB"
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432  
+              name: postgres
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-storage
+      volumes:
+        - name: postgres-storage
+          emptyDir: {}
+          
+      
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector:
+    app: db
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
